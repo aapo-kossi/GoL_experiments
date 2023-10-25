@@ -49,7 +49,6 @@ def calculate_nn(grid):
     return alive_neighbors
 
 
-
 @njit(parallel=True)
 def update_neighbors(
     neighbor_counts,
@@ -93,7 +92,10 @@ def conservative_game_of_life(
         )
 
         if not (np.any(unsatisfied_alive_mask) and np.any(unsatisfied_dead_mask)):
-            # If there are no unsatisfied cells, the game has reached a final state
+            # If there are no unsatisfied cells, the game has reached a final state.
+            # The final state should be used as the figure, and last frame of the animation
+            grids[animation_step - 1] = grid
+            neighbor_counts_anim[animation_step - 1] = neighbor_counts
             break
 
         # sample single random cells from unsatisfied alive and dead cells
@@ -108,7 +110,7 @@ def conservative_game_of_life(
         dead_cell = dead_unsatisfied[np.random.randint(dead_unsatisfied.shape[0])]
 
         # swap the chosen alive and dead cell
-        grid[alive_cell[0], alive_cell[1]] = 0 
+        grid[alive_cell[0], alive_cell[1]] = 0
         grid[dead_cell[0], dead_cell[1]] = 1
 
         # Updaeunsatisfied cells around the modified cells
@@ -165,8 +167,9 @@ fps = 20
 
 def update(frame):
     colors = get_colors(animation_grid[frame], animation_nn[frame])
-    im.set_array(colors)    
+    im.set_array(colors)
     return [im]
+
 
 ani = animation.FuncAnimation(
     fig,
@@ -176,7 +179,7 @@ ani = animation.FuncAnimation(
     blit=False,
     repeat=True,
 )
-writer = animation.FFMpegWriter(fps = fps, bitrate = 500)
+writer = animation.FFMpegWriter(fps=fps, bitrate=500)
 ani.save(
     f"videos/GoL_animation_L{grid_size}_pd{p_dead}_steps{steps}_frames{ani_steps}_framedt{ani_freq}.mp4",
     dpi=max(128, grid_size / 4),  # ensure that a pixel size is atleast two cells

@@ -209,27 +209,51 @@ void unsatisfiedIdxToGridIdx(
     int i = 0;
 
     while (!done) {
-        // if (i > N*N/BITNESS) {
-        //     break;
-        // }
-        uint64_t blockUD = (~gridA[i]) & gridU[i];
-        uint64_t blockUA = gridA[i] & gridU[i];
-        uint64_t numUDblock = __popcnt64(blockUD);
-        uint64_t numUAblock = __popcnt64(blockUA);
-        if (!foundD && (numUD + numUDblock > nd)) {
-            pos[0] = i;
-            bitPos[0] = _pdep_u64(1UL << (nd - numUD), blockUD);
-            foundD = true;
+        int j = i * 8;
+        __m512i aliveBlock = _mm512_load_epi64(&gridA[j]);
+        __m512i unsatisfiedBlock = _mm512_load_epi64(&gridU[j]);
+        __m512i blockUD = _mm512_andnot_epi64(unsatisfiedBlock, aliveBlock);
+        __m512i numUDblock = _mm512_popcnt_epi64(blockUD);
+        uint64_t totalUDblock = _mm512_reduce_add_epi64(blockUD);
+
+        if (!foundD && (numUD + totalUDblock > nd)) {
+            // find the exact position of the nth cell
+            uint64_t* blockUDf = (uint64_t*)&blockUD;
+            uint64_t* numUDf = (uint64_t*)&numUDblock;
+            int k = 0;
+            uint64_t accumulator = numUDf[0];
+            foundD = numUD + accumulator > nd;
+            while (!foundD) {
+                k++;
+                accumulator += numUDf[k];
+                foundD = numUD + accumulator > nd;
+            }
+            pos[0] = i + k;
+            bitPos[0] = _pdep_u64(1UL << (nd - numUD - accumulator), blockUDf[k]);
             // printf("numUD = %u, numUDblock = %u, blockUD = %llu, nd = %u, bitPos = %llu\n", numUD, numUDblock, blockUD, nd, bitPos[0]);
         }
-        if (!foundA && (numUA + numUAblock > na)) {
-            pos[1] = i;
-            bitPos[1] = _pdep_u64(1UL << (na - numUA), blockUA);
-            foundA = true;
-            // printf("numUA = %u, numUAblock = %u, blockUA = %llu, na = %u, bitPos = %llu\n", numUA, numUAblock, blockUA, na, bitPos[1]);
+        numUD += totalUDblock;
+
+        __m512i blockUA = _mm512_and_epi64(unsatisfiedBlock, aliveBlock);
+        __m512i numUAblock = _mm512_popcnt_epi64(blockUA);
+        uint64_t totalUAblock = _mm512_reduce_add_epi64(blockUA);
+        if (!foundA && (numUA + totalUDblock > na)) {
+            // find the exact position of the nth cell
+            uint64_t* blockUAf = (uint64_t*)&blockUA;
+            uint64_t* numUAf = (uint64_t*)&numUAblock;
+            int k = 0;
+            uint64_t accumulator = numUAf[0];
+            foundA = numUA + accumulator > nd;
+            while (!foundA) {
+                k++;
+                accumulator += numUAf[k];
+                foundA = numUA + accumulator > nd;
+            }
+            pos[1] = i + k;
+            bitPos[1] = _pdep_u64(1UL << (nd - numUA - accumulator), blockUAf[k]);
         }
-        numUD += numUDblock;
-        numUA += numUAblock;
+        numUA += totalUAblock;
+
         done = foundA && foundD;
         i++;
     }
@@ -313,11 +337,12 @@ int main(int argc, char** argv) {
         "Initialization probability of cell being dead: %f\n"
         "Maximum number of iterations: %i\n"
         "Maximum numbe of generated video frames: %i\n"
-        "Animation frequency in units of 1/dt: %f\n",
+        "Animation frequenof 1/dt: %f\n",
         N, p, numIter, numFrames, freq);
 
-    uint64_t* gridAlive = (uint64_t*)calloc(N*N/BITNESS + 1, sizeof(uint64_t));
-    uint64_t* gridUnsatisfied = (uint64_t*)calloc(N*N/BITNESS + 1, sizeof(uint64_t));
+    int allocGridSize = N*N/8 + (N*N % 8 != 0);
+    uint64_t* gridAlive = (uint64_t*)_mm_malloc(allocGridSize, 64);
+    uint64_t* gridUnsatisfied = (uint64_t*)_mm_malloc(allocGridSize, 64);
     uint64_t countUD = 0;
     uint64_t countUA = 0;
     initialize(N, &d, &gen, gridAlive);

@@ -113,7 +113,7 @@ def conservative_game_of_life(
         grid[alive_cell[0], alive_cell[1]] = 0
         grid[dead_cell[0], dead_cell[1]] = 1
 
-        # Updaeunsatisfied cells around the modified cells
+        # Update unsatisfied cells around the modified cells
         update_neighbors(neighbor_counts, alive_cell, dead_cell)
 
         # animation stuff
@@ -179,7 +179,10 @@ ani = animation.FuncAnimation(
     blit=False,
     repeat=True,
 )
-writer = animation.FFMpegWriter(fps=fps, bitrate=500)
+writer = animation.FFMpegWriter(
+        fps=fps, bitrate=320,
+        extra_args=['-crf', '0', '-preset', 'veryslow', '-c:a', 'libmp3lame']
+)
 ani.save(
     f"videos/GoL_animation_L{grid_size}_pd{p_dead}_steps{steps}_frames{ani_steps}_framedt{ani_freq}.mp4",
     dpi=max(128, grid_size / 4),  # ensure that a pixel size is atleast two cells

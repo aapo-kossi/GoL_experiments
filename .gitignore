@@ -1,2 +1,5 @@
 videos/
 venv/
+.vscode/
+*.out
+*.exe

@@ -157,6 +157,7 @@ void update_unsatisfied(
 ) {
     // Define grid indices of a Moore neighborhood
     const vector<int> neighborhood{ -1-N, -N, 1-N, -1, 1, N-1, N, N+1};
+    const vector<int> bitshift{ -1, 0, 1, -1, 1, -1, 0, 1};
     int gridLength = N*N/BITNESS;
 
     // Loop over neighbors
@@ -167,24 +168,11 @@ void update_unsatisfied(
         uint64_t j = mod(pos[1]*BITNESS + __builtin_ctzll(bitPos[1]) + neighborhood[idx], N*N);
 
         // Get array indices and bit positions of the swapped cells
-        uint64_t iPosD = pos[0];
-        if ((neighborhood[idx] < 0) && !(bitPos[0] >> -neighborhood[idx])) {
-            iPosD--;
-        } else if ((neighborhood[idx] > 0) && !(bitPos[0] << neighborhood[idx])) {
-            iPosD++;
-        }
-        iPosD = mod(iPosD, gridLength);
+        uint64_t iPosD = i / BITNESS;
+        uint64_t iPosA = j / BITNESS;
 
-        uint64_t iPosA = pos[1];
-        if ((neighborhood[idx] < 0) && !(bitPos[1] >> -neighborhood[idx])) {
-            iPosA--;
-        } else if ((neighborhood[idx] > 0) && !(bitPos[1] << neighborhood[idx])) {
-            iPosA++;
-        }
-        iPosA = mod(iPosA, gridLength);
-
-        uint64_t iBitPosD = std::rotl(bitPos[0], neighborhood[idx]);
-        uint64_t iBitPosA = std::rotl(bitPos[1], neighborhood[idx]);
+        uint64_t iBitPosD = std::rotl(bitPos[0], bitshift[idx]);
+        uint64_t iBitPosA = std::rotl(bitPos[1], bitshift[idx]);
 
         // Check if the cells are satisfied
         bool ui = isUnsatisfied(grid, N, i);
@@ -208,7 +196,6 @@ void update_unsatisfied(
         // Set the grid bit of the cells to their new state
         gridU[iPosD] = (gridU[iPosD] & ~iBitPosD) | (iBitPosD*ui);
         gridU[iPosA] = (gridU[iPosA] & ~iBitPosA) | (iBitPosA*uj);
-
     }
 }
 

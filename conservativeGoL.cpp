@@ -12,10 +12,10 @@
 #include <iostream>
 #include <bit>
 #include <random>
-#include <intrin.h>
+#include <immintrin.h>
 #include <format>
 #include <bitset>
-#include "Cimg.h"
+#include "CImg.h"
 
 #define BITNESS 64
 
@@ -75,7 +75,7 @@ void initialize(
     uint64_t* grid
 ) {
     for (uint64_t i=0; i<(N*N); i++) {
-        grid[i/BITNESS] |= (uint64_t)(*d)(*gen) << mod64(i); 
+        grid[i/BITNESS] |= (uint64_t)(*d)(*gen) << mod64(i);
     }
 
 }
@@ -103,7 +103,7 @@ bool isUnsatisfied(uint64_t* grid, int N, int i) {       // verified working as 
 void print_numbers(int N, uint64_t* grid) {
     uint64_t n_alive = 0;
     for (int i=0; i< N*N/BITNESS; i++) {
-        n_alive += __popcnt64(grid[i]);
+        n_alive += _popcnt64(grid[i]);
     }
     printf("%u\n", n_alive);
 }
@@ -126,7 +126,7 @@ void get_all_unsatisfied(
 void update_unsatisfied(
     int N,
     uint64_t& countUD,
-    uint64_t& countUA, 
+    uint64_t& countUA,
     uint64_t* grid,
     uint64_t* gridU,
     uint64_t* pos,
@@ -137,7 +137,7 @@ void update_unsatisfied(
     for (uint64_t idx=0; idx < 8; idx++) {
         uint64_t i = mod(pos[0]*BITNESS + __builtin_ctzll(bitPos[0]) + neighborhood[idx], N*N);
         uint64_t j = mod(pos[1]*BITNESS + __builtin_ctzll(bitPos[1]) + neighborhood[idx], N*N);
-        
+
         uint64_t iPosD = pos[0];
         if ((neighborhood[idx] < 0) && !(bitPos[0] >> -neighborhood[idx])) {
             iPosD--;
@@ -145,7 +145,7 @@ void update_unsatisfied(
             iPosD++;
         }
         iPosD = mod(iPosD, gridLength);
-        
+
         uint64_t iPosA = pos[1];
         if ((neighborhood[idx] < 0) && !(bitPos[1] >> -neighborhood[idx])) {
             iPosA--;
@@ -159,7 +159,7 @@ void update_unsatisfied(
 
         bool ui = isUnsatisfied(grid, N, i);
         bool uj = isUnsatisfied(grid, N, j);
-        
+
         // printf("i = %u, ui = %d, bpi = %i, pi = %i\n", i, ui, __builtin_ctzll(iBitPosD), iPosD);
         // printf("j = %d, uj = %d, bpj = %i, pj = %i\n", j, uj, __builtin_ctzll(iBitPosA), iPosA);
 
@@ -176,7 +176,7 @@ void update_unsatisfied(
         } else {
             countUD += aNeighborIncr;
         }
-        
+
         // printf("countUD = %u, countUA = %u\n", countUD, countUA);
 
         // std::bitset<64> set(gridU[0]);
@@ -214,8 +214,8 @@ void unsatisfiedIdxToGridIdx(
         // }
         uint64_t blockUD = (~gridA[i]) & gridU[i];
         uint64_t blockUA = gridA[i] & gridU[i];
-        uint64_t numUDblock = __popcnt64(blockUD);
-        uint64_t numUAblock = __popcnt64(blockUA);
+        uint64_t numUDblock = _popcnt64(blockUD);
+        uint64_t numUAblock = _popcnt64(blockUA);
         if (!foundD && (numUD + numUDblock > nd)) {
             pos[0] = i;
             bitPos[0] = _pdep_u64(1UL << (nd - numUD), blockUD);
@@ -304,7 +304,7 @@ int main(int argc, char** argv) {
     uint64_t numFrames = atoi(argv[4]);
     float freq = atof(argv[5]);
     uint64_t seed = atoi(argv[6]);
-    
+
     mt19937 gen(seed);
     bernoulli_distribution d(1-p);
     printf(
@@ -333,7 +333,7 @@ int main(int argc, char** argv) {
     uint64_t bitPos[2];
     float frameTime = 0;
     float totalTime = 0;
-    uint64_t currentFrame = 1; // The first simulation frame is already plotted 
+    uint64_t currentFrame = 1; // The first simulation frame is already plotted
     float maxFrameTime = 1.0f/freq;
 
     for (i; i<numIter; i++) {

@@ -19,6 +19,7 @@
 #include <intrin.h>
 #include <format>
 #include <bitset>
+#include <unordered_map>
 #include "Cimg.h"
 
 #define BITNESS 64
@@ -180,6 +181,13 @@ unsigned mod64(int x) {
     return mod(x, BITNESS);
 }
 
+
+void mapAdd(std::unordered_map<uint64_t, int>& out, std::unordered_map<uint64_t, int>& in) {
+    for (auto initer = in.begin(); initer != in.end(); ++initer) {
+        out[initer->first] += initer->second;
+    }
+}
+
 CImg<unsigned char> getFrame(int N, uint64_t* gridA, uint64_t* gridU) {
     unsigned char black[] = { 0,0,0 },  white[] = { 252,250,246 }, green[] = { 0,100,0 }, red[] = { 255,20,10 };
     unsigned char* color;
@@ -259,6 +267,8 @@ void get_all_unsatisfied(
     uint64_t* grid,
     uint64_t* gridUnsatisfied
 ) {
+
+    #pragma omp parallel for
     for (uint64_t i=0; i<(N*N);i++) {
         bool state = isUnsatisfied(grid, N, i);
         gridUnsatisfied[i/BITNESS] |= (uint64_t)state << mod64(i);
@@ -275,45 +285,83 @@ void update_unsatisfied(
     uint64_t* bitPos
 ) {
     const vector<int> neighborhood{ -1-N, -N, 1-N, -1, 1, N-1, N, N+1};
+    vector<uint64_t> nbrDPositions(neighborhood.size());
+    vector<uint64_t> nbrAPositions(neighborhood.size());
+    vector<uint64_t> nbrDbitPositions(neighborhood.size());
+    vector<uint64_t> nbrAbitPositions(neighborhood.size());
+    vector<bool> nbrDisUnsatisfied(neighborhood.size());
+    vector<bool> nbrAisUnsatisfied(neighborhood.size());
+
+    // aggregate different neighbors that have identical position to avoid unnecessary updates
+    std::unordered_map<uint64_t, int> totalIncrementsA;
+    std::unordered_map<uint64_t, int> totalIncrementsD;
+    std::unordered_map<uint64_t, uint64_t> updatedGridUElements;
+
     int gridLength = N*N/BITNESS;
-    for (uint64_t idx=0; idx < 8; idx++) {
+
+    // this doesn't parallelize very well as we are adding new keys, but it is convenient
+    // to do the reduction inside the parallel block.
+    #pragma omp declare reduction(mapAdd : std::unordered_map<uint64_t, int> :  \
+            mapAdd(omp_out, omp_in))                                            \
+            initializer(omp_priv=omp_orig)
+
+    #pragma omp parallel for reduction(mapAdd:totalIncrementsA, totalIncrementsD)
+    for (int idx=0; idx < 8; idx++) {
         uint64_t i = mod(pos[0]*BITNESS + __builtin_ctzll(bitPos[0]) + neighborhood[idx], N*N);
         uint64_t j = mod(pos[1]*BITNESS + __builtin_ctzll(bitPos[1]) + neighborhood[idx], N*N);
 
-        uint64_t iPosD = i / BITNESS;
-        uint64_t iPosA = j / BITNESS;
+        nbrDPositions[idx] = i / BITNESS;
+        nbrAPositions[idx] = j / BITNESS;
 
-        uint64_t iBitPosD = std::rotl(bitPos[0], neighborhood[idx]);
-        uint64_t iBitPosA = std::rotl(bitPos[1], neighborhood[idx]);
+        nbrDbitPositions[idx] = std::rotl(bitPos[0], neighborhood[idx]);
+        nbrAbitPositions[idx] = std::rotl(bitPos[1], neighborhood[idx]);
 
-        bool ui = isUnsatisfied(grid, N, i);
-        bool uj = isUnsatisfied(grid, N, j);
+        nbrDisUnsatisfied[idx] = isUnsatisfied(grid, N, i);
+        nbrAisUnsatisfied[idx] = isUnsatisfied(grid, N, j);
 
         // add new unsatisfied state, subtract previous
-        int dNeighborIncr = ui - !!(gridU[iPosD] & iBitPosD);
-        int aNeighborIncr = uj - !!(gridU[iPosA] & iBitPosA);
-        if (dNeighborIncr) {
-            if (grid[iPosD] & iBitPosD) {
-                // this neighbor of dead cell is alive
-                treeUA.update(iPosD, dNeighborIncr);
-            } else {
-                // this neighbor of dead cell is dead
-                treeUD.update(iPosD, dNeighborIncr);
-            }
+        int nbrDIncrement = nbrDisUnsatisfied[idx] - !!(gridU[nbrDPositions[idx]] & nbrDbitPositions[idx]);
+        int nbrAIncrement = nbrAisUnsatisfied[idx] - !!(gridU[nbrAPositions[idx]] & nbrAbitPositions[idx]);
+
+        if (grid[nbrDPositions[idx]] & nbrDbitPositions[idx]) {
+            // this neighbor of dead cell is alive
+            totalIncrementsA[nbrDPositions[idx]] += nbrDIncrement;
+        } else {
+            // this neighbor of dead cell is dead
+            totalIncrementsD[nbrDPositions[idx]] += nbrDIncrement;
         }
 
-        if (aNeighborIncr) {
-            if (grid[iPosA] & iBitPosA) {
-                // this neighbor of dead cell is alive
-                treeUA.update(iPosA, aNeighborIncr);
-            } else {
-                // this neighbor of dead cell is dead
-                treeUD.update(iPosA, aNeighborIncr);
-            }
+        if (grid[nbrAPositions[idx]] & nbrAbitPositions[idx]) {
+            // this neighbor of alive cell is alive
+            totalIncrementsA[nbrAPositions[idx]] += nbrAIncrement;
+        } else {
+            // this neighbor of alive cell is dead
+            totalIncrementsD[nbrAPositions[idx]] += nbrAIncrement;
         }
 
-        gridU[iPosD] = (gridU[iPosD] & ~iBitPosD) | (iBitPosD*ui);
-        gridU[iPosA] = (gridU[iPosA] & ~iBitPosA) | (iBitPosA*uj);
+    }
+    
+    for (auto& iterIncrD : totalIncrementsD) {
+        if (iterIncrD.second != 0) {
+            treeUD.update(iterIncrD.first, iterIncrD.second);
+        }
+    }
+
+    for (auto& iterIncrA : totalIncrementsA) {
+        if (iterIncrA.second != 0) {
+            treeUA.update(iterIncrA.first, iterIncrA.second);
+        }
+    }
+
+    for (int idx=0; idx < 8; idx++) {
+
+        gridU[nbrDPositions[idx]] = (
+            gridU[nbrDPositions[idx]] & ~nbrDbitPositions[idx])
+            | (nbrDbitPositions[idx]*nbrDisUnsatisfied[idx]);
+
+        gridU[nbrAPositions[idx]] = (
+            gridU[nbrAPositions[idx]] & ~nbrAbitPositions[idx])
+            | (nbrAbitPositions[idx]*nbrAisUnsatisfied[idx]);
 
     }
 }

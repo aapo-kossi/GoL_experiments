@@ -2,6 +2,10 @@
 // Program to simulate the conservative, probabilistic                      //
 // version of Conway's Game of Life from                                    //
 // https://journals.aps.org/pre/abstract/10.1103/PhysRevE.103.012132        //
+// (Actually a slightly altered version that could be reduced to a 1D case  //
+// where a neighborhood also includes the cells at -N-1,-N,-N+1 and         //
+// symmetrically in the positive direction                                  //
+// These systems are asymptotically identical.)                             //
 //                                                                          //
 // Requires CImg for saving simulation frames, and ffmpeg for               //
 // encoding the frames as video output.                                     //
@@ -18,9 +22,150 @@
 #include "Cimg.h"
 
 #define BITNESS 64
+#define SNAPRES 512
 
 using namespace std;
 using namespace cimg_library;
+
+enum Action {
+    INCREMENT = 1,
+    DECREMENT = -1
+};
+
+struct CounterNode {
+    unsigned int ltotal;
+    unsigned int rtotal;
+    unsigned int location;
+    bool final;
+};
+
+class CounterTree {
+public:
+    CounterTree(int N, vector<uint64_t> grid) {
+        numLeaf = N*N/BITNESS;
+        depth = log2(numLeaf);
+
+        // build the tree starting from the bottom layer (leaves)
+        vector<unsigned int> popcounts(N*N/BITNESS);
+        for (unsigned int i=0; i<numLeaf; i++) {
+            popcounts[i] = _popcnt64(grid[i]);
+            nodes.push_back(CounterNode { 0, popcounts[i], i, true });
+        }
+
+        // add the narrower layers
+        unsigned int layerWidth = numLeaf/2;
+        int currentLayer = 1;
+        int step = 2;
+        while (layerWidth > 0) {
+            vector<CounterNode> nLayer;
+            // printf("Starting layer %u\n", currentLayer);
+            for (int i=0; i<layerWidth; i++) {
+                CounterNode lchild = nodes[i*2];
+                CounterNode rchild = nodes[i*2+1];
+                nLayer.push_back(CounterNode { lchild.ltotal + lchild.rtotal, rchild.ltotal + rchild.rtotal, 0, false });
+                // printf("left: %u, right: %u\n", lchild.ltotal + lchild.rtotal, rchild.ltotal + rchild.rtotal);
+            }
+            nodes.insert(nodes.begin(), nLayer.begin(), nLayer.end());
+            layerWidth /= 2;
+            currentLayer++;
+        }
+    }
+
+    // get the index of the leaf that has [n] set bits in total in leaves up to and including itself
+    unsigned int getPosition(unsigned int n, unsigned int& totalBelow) {
+        unsigned int treeIdx = 0;
+        CounterNode current = nodes[treeIdx];
+        unsigned int layerSize = 1;
+        unsigned int layerIdx = 0;
+
+        for (int i = 0; i < depth; i++) {
+            unsigned int prevLayerIdx = layerIdx;
+            bool selectRight = (totalBelow + current.ltotal) <= n;
+            totalBelow += current.ltotal * selectRight;
+            layerIdx = 2*layerIdx + selectRight;
+            treeIdx += (layerSize - prevLayerIdx) + layerIdx;
+            current = nodes[treeIdx];
+            layerSize *= 2;
+        }
+
+        // index in the bottom layer of the tree is identical to the grid index
+        return layerIdx;
+    }
+
+    // update the leaf at index idx and all its parents according to action
+    void update(unsigned int idx, int action) {
+        unsigned int treeIdx = 0;
+        unsigned int layerSize = 1;
+        unsigned int layerIdx = 0;
+        unsigned int layerStart = 0;
+        for (int i = 0; i < depth; i++) {
+            layerIdx = idx * layerSize / numLeaf;
+            treeIdx = layerStart + layerIdx;
+            CounterNode& current = nodes[treeIdx];
+
+            if ( (2 * idx * layerSize / numLeaf) % 2 ) {
+                current.rtotal += action;
+            } else {
+                current.ltotal += action;
+            }
+
+            layerStart += layerSize;
+            layerSize *= 2;
+        }
+        treeIdx = layerStart + layerIdx;
+        CounterNode& current = nodes[treeIdx];
+        current.rtotal += action;
+    }
+
+    // get the total number of set bits in the grid
+    unsigned int total() {
+        return nodes[0].ltotal + nodes[0].rtotal;
+    }
+
+    // get the leaf at index idx
+    CounterNode leaf(unsigned int idx) {
+        return nodes[numLeaf - 1 + idx];
+    }
+
+    // print all counters of the tree
+    void printAll() {
+        for (int i=0; i<numLeaf*2-1; i++) {
+            printf("i=%i: l%u, r%u\n", i, nodes[i].ltotal, nodes[i].rtotal);
+        }
+    }
+private:
+    unsigned int numLeaf;
+    unsigned int depth;
+    vector<CounterNode> nodes;
+};
+
+// Construct a counter tree for tracking alive, unsatisfied counts
+class AliveCounters: public CounterTree {
+private:
+    vector<uint64_t> getGridUD(int N, uint64_t* gridA, uint64_t* gridU) {
+        vector<uint64_t> ret;
+        for (int i=0; i<(N*N/BITNESS); i++) {
+            ret.push_back(gridU[i] & gridA[i]);
+        }
+        return ret;
+    }
+public:
+    AliveCounters(int N, uint64_t* gridA, uint64_t* gridU): CounterTree(N, getGridUD(N, gridA, gridU)) {}
+};
+
+// Construct a counter tree for tracking dead, unsatisfied counts
+class DeadCounters: public CounterTree {
+private:
+    vector<uint64_t> getGridUD(int N, uint64_t* gridA, uint64_t* gridU) {
+        vector<uint64_t> ret;
+        for (int i=0; i<(N*N/BITNESS); i++) {
+            ret.push_back(gridU[i] & (~gridA[i]));
+        }
+        return ret;
+    }
+public:
+    DeadCounters(int N, uint64_t* gridA, uint64_t* gridU): CounterTree(N, getGridUD(N, gridA, gridU)) {}
+};
 
 unsigned mod(int x, int y) {
     int mod = x % y;
@@ -65,6 +210,9 @@ CImg<unsigned char> getFrame(int N, uint64_t* gridA, uint64_t* gridU) {
     uint64_t dim = N;
     CImg<unsigned char> img(colorArray,dim,dim,1U,3U);
     free(colorArray);
+    if (N < (SNAPRES/2)) {
+        img.resize(SNAPRES, SNAPRES);
+    }
     return img;
 }
 
@@ -75,27 +223,25 @@ void initialize(
     uint64_t* grid
 ) {
     for (uint64_t i=0; i<(N*N); i++) {
-        grid[i/BITNESS] |= (uint64_t)(*d)(*gen) << mod64(i); 
+        grid[i/BITNESS] |= (uint64_t)(*d)(*gen) << mod64(i);
     }
 
 }
 
-bool isUnsatisfied(uint64_t* grid, int N, int i) {       // verified working as intended! yay
+bool isUnsatisfied(uint64_t* grid, int N, int i) {
     int Nsquared = N*N;
     bool isAlive = 1U & (grid[i/BITNESS] >> mod64(i));
     uint64_t n = 0;
-    const vector<int> neighborhood = { -1-N, -N, 1-N, -1, 1, N-1, N, N+1}; // this can wrap wrong :((((, creates 1 offset between left and right edges, insignificant
+    const vector<int> neighborhood = { -1-N, -N, 1-N, -1, 1, N-1, N, N+1};
     for (uint64_t idx=0; idx < neighborhood.size(); idx++) {
         uint64_t j = mod(neighborhood[idx] + i, Nsquared);
         n += 1U & (grid[j/BITNESS] >> mod64(j));
     }
 
     if (isAlive) {
-        // printf("alive cell, %i\n", n);
         return (n != 2) && (n != 3);
     }
     else {
-        // printf("dead cell, %i\n", n);
         return n == 3;
     }
 }
@@ -103,7 +249,7 @@ bool isUnsatisfied(uint64_t* grid, int N, int i) {       // verified working as 
 void print_numbers(int N, uint64_t* grid) {
     uint64_t n_alive = 0;
     for (int i=0; i< N*N/BITNESS; i++) {
-        n_alive += __popcnt64(grid[i]);
+        n_alive += _popcnt64(grid[i]);
     }
     printf("%u\n", n_alive);
 }
@@ -111,22 +257,18 @@ void print_numbers(int N, uint64_t* grid) {
 void get_all_unsatisfied(
     int N,
     uint64_t* grid,
-    uint64_t* gridUnsatisfied,
-    uint64_t& countD,
-    uint64_t& countA
+    uint64_t* gridUnsatisfied
 ) {
     for (uint64_t i=0; i<(N*N);i++) {
         bool state = isUnsatisfied(grid, N, i);
         gridUnsatisfied[i/BITNESS] |= (uint64_t)state << mod64(i);
-        countD += state & !((grid[i/BITNESS] >> mod64(i)) & 1);
-        countA += state &  ((grid[i/BITNESS] >> mod64(i)) & 1);
     }
 }
 
 void update_unsatisfied(
     int N,
-    uint64_t& countUD,
-    uint64_t& countUA, 
+    CounterTree& treeUD,
+    CounterTree& treeUA,
     uint64_t* grid,
     uint64_t* gridU,
     uint64_t* pos,
@@ -137,152 +279,111 @@ void update_unsatisfied(
     for (uint64_t idx=0; idx < 8; idx++) {
         uint64_t i = mod(pos[0]*BITNESS + __builtin_ctzll(bitPos[0]) + neighborhood[idx], N*N);
         uint64_t j = mod(pos[1]*BITNESS + __builtin_ctzll(bitPos[1]) + neighborhood[idx], N*N);
-        
-        uint64_t iPosD = pos[0];
-        if ((neighborhood[idx] < 0) && !(bitPos[0] >> -neighborhood[idx])) {
-            iPosD--;
-        } else if ((neighborhood[idx] > 0) && !(bitPos[0] << neighborhood[idx])) {
-            iPosD++;
-        }
-        iPosD = mod(iPosD, gridLength);
-        
-        uint64_t iPosA = pos[1];
-        if ((neighborhood[idx] < 0) && !(bitPos[1] >> -neighborhood[idx])) {
-            iPosA--;
-        } else if ((neighborhood[idx] > 0) && !(bitPos[1] << neighborhood[idx])) {
-            iPosA++;
-        }
-        iPosA = mod(iPosA, gridLength);
+
+        uint64_t iPosD = i / BITNESS;
+        uint64_t iPosA = j / BITNESS;
 
         uint64_t iBitPosD = std::rotl(bitPos[0], neighborhood[idx]);
         uint64_t iBitPosA = std::rotl(bitPos[1], neighborhood[idx]);
 
         bool ui = isUnsatisfied(grid, N, i);
         bool uj = isUnsatisfied(grid, N, j);
-        
-        // printf("i = %u, ui = %d, bpi = %i, pi = %i\n", i, ui, __builtin_ctzll(iBitPosD), iPosD);
-        // printf("j = %d, uj = %d, bpj = %i, pj = %i\n", j, uj, __builtin_ctzll(iBitPosA), iPosA);
 
         // add new unsatisfied state, subtract previous
         int dNeighborIncr = ui - !!(gridU[iPosD] & iBitPosD);
         int aNeighborIncr = uj - !!(gridU[iPosA] & iBitPosA);
-        if (grid[iPosD] & iBitPosD) {
-            countUA += dNeighborIncr;
-        } else {
-            countUD += dNeighborIncr;
+        if (dNeighborIncr) {
+            if (grid[iPosD] & iBitPosD) {
+                // this neighbor of dead cell is alive
+                treeUA.update(iPosD, dNeighborIncr);
+            } else {
+                // this neighbor of dead cell is dead
+                treeUD.update(iPosD, dNeighborIncr);
+            }
         }
-        if (grid[iPosA] & iBitPosA) {
-            countUA += aNeighborIncr;
-        } else {
-            countUD += aNeighborIncr;
-        }
-        
-        // printf("countUD = %u, countUA = %u\n", countUD, countUA);
 
-        // std::bitset<64> set(gridU[0]);
-        // update the grid
-        // std::cout << set << std::endl;
+        if (aNeighborIncr) {
+            if (grid[iPosA] & iBitPosA) {
+                // this neighbor of dead cell is alive
+                treeUA.update(iPosA, aNeighborIncr);
+            } else {
+                // this neighbor of dead cell is dead
+                treeUD.update(iPosA, aNeighborIncr);
+            }
+        }
+
         gridU[iPosD] = (gridU[iPosD] & ~iBitPosD) | (iBitPosD*ui);
         gridU[iPosA] = (gridU[iPosA] & ~iBitPosA) | (iBitPosA*uj);
-        // set = gridU[0];
-        // std::cout << set << std::endl;
 
     }
 }
 
-// O(N^2) complexity, this function dominates runtime for large grids
 void unsatisfiedIdxToGridIdx(
     int N,
     uint64_t* gridA,
     uint64_t* gridU,
     uint64_t& nd,
     uint64_t& na,
+    CounterTree& treeUD,
+    CounterTree& treeUA,
     uint64_t* pos,
     uint64_t* bitPos
 ) {
-
-    uint64_t numUD = 0;
-    uint64_t numUA = 0;
-    bool done = false;
-    bool foundA = false;
-    bool foundD = false;
-    int i = 0;
-
-    while (!done) {
-        // if (i > N*N/BITNESS) {
-        //     break;
-        // }
-        uint64_t blockUD = (~gridA[i]) & gridU[i];
-        uint64_t blockUA = gridA[i] & gridU[i];
-        uint64_t numUDblock = __popcnt64(blockUD);
-        uint64_t numUAblock = __popcnt64(blockUA);
-        if (!foundD && (numUD + numUDblock > nd)) {
-            pos[0] = i;
-            bitPos[0] = _pdep_u64(1UL << (nd - numUD), blockUD);
-            foundD = true;
-            // printf("numUD = %u, numUDblock = %u, blockUD = %llu, nd = %u, bitPos = %llu\n", numUD, numUDblock, blockUD, nd, bitPos[0]);
-        }
-        if (!foundA && (numUA + numUAblock > na)) {
-            pos[1] = i;
-            bitPos[1] = _pdep_u64(1UL << (na - numUA), blockUA);
-            foundA = true;
-            // printf("numUA = %u, numUAblock = %u, blockUA = %llu, na = %u, bitPos = %llu\n", numUA, numUAblock, blockUA, na, bitPos[1]);
-        }
-        numUD += numUDblock;
-        numUA += numUAblock;
-        done = foundA && foundD;
-        i++;
-    }
+    unsigned int belowCountUD = 0;
+    unsigned int belowCountUA = 0;
+    pos[0] = treeUD.getPosition(nd, belowCountUD);
+    pos[1] = treeUA.getPosition(na, belowCountUA);
+    bitPos[0] = _pdep_u64(1ULL << (nd - belowCountUD), (gridU[pos[0]] & (~gridA[pos[0]])));
+    bitPos[1] = _pdep_u64(1ULL << (na - belowCountUA), (gridU[pos[1]] & gridA[pos[1]]));
 }
 
 void step(
     int N,
-    uint64_t& countUD,
-    uint64_t& countUA,
+    CounterTree& treeUD,
+    CounterTree& treeUA,
     uint64_t* grid,
     uint64_t* gridUnsatisfied,
     uint64_t* pos,
     uint64_t* bitPos,
     mt19937& gen
 ) {
-    uniform_int_distribution<> dD(0, countUD - 1);
-    uniform_int_distribution<> dA(0, countUA - 1);
+    uniform_int_distribution<> dD(0, treeUD.total() - 1);
+    uniform_int_distribution<> dA(0, treeUA.total() - 1);
     uint64_t idxd = dD(gen);
     uint64_t idxa = dA(gen);
-    unsatisfiedIdxToGridIdx(N, grid, gridUnsatisfied, idxd, idxa, pos, bitPos); // populate positions of cells to be swapped
+    unsatisfiedIdxToGridIdx(
+        N,
+        grid,
+        gridUnsatisfied,
+        idxd,
+        idxa,
+        treeUD,
+        treeUA,
+        pos,
+        bitPos
+    ); // populate positions of cells to be swapped
 
     // swap cells
     grid[pos[0]] ^= bitPos[0];
     grid[pos[1]] ^= bitPos[1];
-    countUD--;
-    countUA--;
+    treeUD.update(pos[0], DECREMENT);
+    treeUA.update(pos[1], DECREMENT);
 
 
     //check if swapped cells are unsatisfied, update counts
-    if (isUnsatisfied(grid, N, pos[0]/BITNESS + __builtin_ctzll(bitPos[0]))) {
-        countUA++;
+    if (isUnsatisfied(grid, N, pos[0]*BITNESS + __builtin_ctzll(bitPos[0]))) {
+        treeUA.update(pos[0], INCREMENT);
     } else {
         gridUnsatisfied[pos[0]] ^= bitPos[0];
     }
-    if (isUnsatisfied(grid, N, pos[1]/BITNESS + __builtin_ctzll(bitPos[1]))) {
-        countUD++;
+    if (isUnsatisfied(grid, N, pos[1]*BITNESS + __builtin_ctzll(bitPos[1]))) {
+        treeUD.update(pos[1], INCREMENT);
     } else {
         gridUnsatisfied[pos[1]] ^= bitPos[1];
     }
 
-
-    // printf("idxd = %u\n", idxd);
-    // printf("idxa = %u\n", idxa);
-    // printf("pos0 = %u\n", pos[0]);
-    // printf("pos1 = %u\n", pos[1]);
-    // printf("bp0 = %llu\n", __builtin_ctzll(bitPos[0]));
-    // printf("bp1 = %llu\n", __builtin_ctzll(bitPos[1]));
-
-
     // update grid of unsatisfied cells and their counts
-    update_unsatisfied(N, countUD, countUA, grid, gridUnsatisfied, pos, bitPos);
-    // printf("%u, %u\n", countUD, countUA);
-    // print_numbers(N, grid);
+    update_unsatisfied(N, treeUD, treeUA, grid, gridUnsatisfied, pos, bitPos);
 }
 
 int main(int argc, char** argv) {
@@ -304,7 +405,7 @@ int main(int argc, char** argv) {
     uint64_t numFrames = atoi(argv[4]);
     float freq = atof(argv[5]);
     uint64_t seed = atoi(argv[6]);
-    
+
     mt19937 gen(seed);
     bernoulli_distribution d(1-p);
     printf(
@@ -318,13 +419,12 @@ int main(int argc, char** argv) {
 
     uint64_t* gridAlive = (uint64_t*)calloc(N*N/BITNESS + 1, sizeof(uint64_t));
     uint64_t* gridUnsatisfied = (uint64_t*)calloc(N*N/BITNESS + 1, sizeof(uint64_t));
-    uint64_t countUD = 0;
-    uint64_t countUA = 0;
+
     initialize(N, &d, &gen, gridAlive);
+    get_all_unsatisfied(N, gridAlive, gridUnsatisfied);
+    DeadCounters treeUD(N, gridAlive, gridUnsatisfied);
+    AliveCounters treeUA(N, gridAlive, gridUnsatisfied);
 
-    get_all_unsatisfied(N, gridAlive, gridUnsatisfied, countUD, countUA);
-
-    // printf("%u,%u\n", countUD, countUA);
     CImgList<unsigned char> animation;
     getFrame(N, gridAlive, gridUnsatisfied).move_to(animation);
 
@@ -333,11 +433,11 @@ int main(int argc, char** argv) {
     uint64_t bitPos[2];
     float frameTime = 0;
     float totalTime = 0;
-    uint64_t currentFrame = 1; // The first simulation frame is already plotted 
+    uint64_t currentFrame = 1; // The first simulation frame is already plotted
     float maxFrameTime = 1.0f/freq;
 
     for (i; i<numIter; i++) {
-        if (!countUD || !countUA) {
+        if (!treeUD.total() || !treeUA.total()) {
             break;
         }
         float diff = frameTime - maxFrameTime;
@@ -346,8 +446,8 @@ int main(int argc, char** argv) {
             frameTime = diff;
             currentFrame += 1;
         }
-        step(N, countUD, countUA, gridAlive, gridUnsatisfied, pos, bitPos, gen);
-        float stepTime = 1.0f/(countUD + countUA);
+        float stepTime = 1.0f/(treeUD.total() + treeUA.total());
+        step(N, treeUD, treeUA, gridAlive, gridUnsatisfied, pos, bitPos, gen);
         frameTime += stepTime;
         totalTime += stepTime;
     }

@@ -1,0 +1,235 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls   s/call   s/call  name    
+ 34.36     15.78    15.78 10000000     0.00     0.00  unsatisfiedIdxToGridIdx(int, unsigned long long*, unsigned long long*, unsigned long long&, unsigned long long&, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*)
+ 27.55     28.43    12.65 448435456     0.00     0.00  isUnsatisfied(unsigned long long*, int, int)
+ 22.65     38.83    10.40 10000000     0.00     0.00  update_unsatisfied(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*)
+  6.88     41.99     3.16 10034310     0.00     0.00  step(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>&)
+  2.50     43.14     1.15       18     0.06     0.07  getFrame(int, unsigned long long*, unsigned long long*)
+  2.37     44.23     1.09        1     1.09     1.14  initialize(int, std::bernoulli_distribution*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>*, unsigned long long*)
+  1.18     44.77     0.54                             _mcount_private
+  1.02     45.24     0.47                             __fentry__
+  0.48     45.46     0.22                             operator new(unsigned long long)
+  0.48     45.68     0.22                             fputc
+  0.15     45.75     0.07        2     0.04     0.04  CounterTree::CounterTree(int, std::vector<unsigned long long, std::allocator<unsigned long long> >)
+  0.11     45.80     0.05   892521     0.00     0.00  std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>::_M_gen_rand()
+  0.11     45.85     0.05        1     0.05     7.62  get_all_unsatisfied(int, unsigned long long*, unsigned long long*)
+  0.11     45.90     0.05                             main
+  0.02     45.91     0.01        1     0.01     0.04  DeadCounters::DeadCounters(int, unsigned long long*, unsigned long long*)
+  0.02     45.92     0.01        1     0.01     0.04  AliveCounters::AliveCounters(int, unsigned long long*, unsigned long long*)
+  0.00     45.92     0.00       71     0.00     0.00  __gcc_deregister_frame
+  0.00     45.92     0.00       37     0.00     0.00  cimg_library::cimg::strcasecmp(char const*, char const*)
+  0.00     45.92     0.00       32     0.00     0.00  cimg_library::cimg::std_fopen(char const*, char const*)
+  0.00     45.92     0.00       27     0.00     0.00  cimg_library::cimg::filenamerand()
+  0.00     45.92     0.00       26     0.00     0.00  cimg_library::cimg::temporary_path(char const*, bool)
+  0.00     45.92     0.00       10     0.00     0.00  cimg_library::CImg<char>::CImg(char const*, unsigned int, unsigned int, unsigned int, unsigned int, bool)
+  0.00     45.92     0.00        8     0.00     0.00  cimg_library::CImg<char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int)
+  0.00     45.92     0.00        4     0.00     0.00  cimg_library::cimg::fopen(char const*, char const*)
+  0.00     45.92     0.00        3     0.00     0.00  cimg_library::CImg<char>::assign(unsigned int, unsigned int, unsigned int, unsigned int)
+  0.00     45.92     0.00        2     0.00     0.00  cimg_library::CImg<char>::_system_strescape()
+  0.00     45.92     0.00        2     0.00     0.00  cimg_library::CImg<unsigned char>::assign(unsigned char const*, unsigned int, unsigned int, unsigned int, unsigned int)
+  0.00     45.92     0.00        2     0.00     0.00  cimg_library::CImg<unsigned char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int)
+  0.00     45.92     0.00        2     0.00     0.00  cimg_library::CImg<unsigned char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int, unsigned char const&)
+  0.00     45.92     0.00        2     0.00     0.00  cimg_library::cimg::ffmpeg_path(char const*, bool)
+  0.00     45.92     0.00        2     0.00     0.00  cimg_library::cimg::number_filename(char const*, int, unsigned int, char*)
+  0.00     45.92     0.00        2     0.00     0.00  cimg_library::CImgList<char>::get_append(char, float) const
+  0.00     45.92     0.00        2     0.00     0.00  std::vector<CounterNode, std::allocator<CounterNode> >::~vector()
+  0.00     45.92     0.00        1     0.00     0.00  cimg_library::CImg<char>::CImg(cimg_library::CImg<char> const&, bool)
+  0.00     45.92     0.00        1     0.00     0.00  cimg_library::CImgList<unsigned char>::~CImgList()
+
+			Call graph
+
+
+granularity: each sample hit covers 4 byte(s) for 0.02% of 45.92 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]     96.8    0.05   44.42                 main [1]
+                3.15   16.29 10000002/10034310     step(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>&) [2]
+               10.40    4.51 10000000/10000000     update_unsatisfied(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*) [4]
+                0.05    7.57       1/1           get_all_unsatisfied(int, unsigned long long*, unsigned long long*) [6]
+                1.15    0.07       4/4           getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+                1.09    0.05       1/1           initialize(int, std::bernoulli_distribution*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>*, unsigned long long*) [9]
+                0.01    0.04       1/1           DeadCounters::DeadCounters(int, unsigned long long*, unsigned long long*) [16]
+                0.01    0.04       1/1           AliveCounters::AliveCounters(int, unsigned long long*, unsigned long long*) [17]
+                0.00    0.00       2/71          __gcc_deregister_frame [214]
+                0.00    0.00       2/2           std::vector<CounterNode, std::allocator<CounterNode> >::~vector() [230]
+                0.00    0.00       1/1           cimg_library::CImgList<unsigned char>::~CImgList() [232]
+-----------------------------------------------
+                0.01    0.06   34308/10034310     getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+                3.15   16.29 10000002/10034310     main [1]
+[2]     42.5    3.16   16.35 10034310         step(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>&) [2]
+               15.78    0.00 10000000/10000000     unsatisfiedIdxToGridIdx(int, unsigned long long*, unsigned long long*, unsigned long long&, unsigned long long&, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*) [3]
+                0.56    0.00 20000000/448435456     isUnsatisfied(unsigned long long*, int, int) [5]
+                0.00    0.00   32150/892521      std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>::_M_gen_rand() [15]
+                0.00    0.00       2/2           cimg_library::CImg<unsigned char>::assign(unsigned char const*, unsigned int, unsigned int, unsigned int, unsigned int) [224]
+-----------------------------------------------
+               15.78    0.00 10000000/10000000     step(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>&) [2]
+[3]     34.4   15.78    0.00 10000000         unsatisfiedIdxToGridIdx(int, unsigned long long*, unsigned long long*, unsigned long long&, unsigned long long&, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*) [3]
+-----------------------------------------------
+               10.40    4.51 10000000/10000000     main [1]
+[4]     32.5   10.40    4.51 10000000         update_unsatisfied(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*) [4]
+                4.51    0.00 160000000/448435456     isUnsatisfied(unsigned long long*, int, int) [5]
+-----------------------------------------------
+                0.56    0.00 20000000/448435456     step(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>&) [2]
+                4.51    0.00 160000000/448435456     update_unsatisfied(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*) [4]
+                7.57    0.00 268435456/448435456     get_all_unsatisfied(int, unsigned long long*, unsigned long long*) [6]
+[5]     27.5   12.65    0.00 448435456         isUnsatisfied(unsigned long long*, int, int) [5]
+-----------------------------------------------
+                0.05    7.57       1/1           main [1]
+[6]     16.6    0.05    7.57       1         get_all_unsatisfied(int, unsigned long long*, unsigned long long*) [6]
+                7.57    0.00 268435456/448435456     isUnsatisfied(unsigned long long*, int, int) [5]
+-----------------------------------------------
+[7]      2.6    1.15    0.07       4+16      <cycle 1 as a whole> [7]
+                1.15    0.07      18+22          getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+                0.00    0.00       2             cimg_library::CImg<char>::_system_strescape() <cycle 1> [223]
+-----------------------------------------------
+                                  22             getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+                                  14             cimg_library::CImg<char>::_system_strescape() <cycle 1> [223]
+                1.15    0.07       4/4           main [1]
+[8]      2.6    1.15    0.07      18+22      getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+                0.01    0.06   34308/10034310     step(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>&) [2]
+                0.00    0.00      61/71          __gcc_deregister_frame [214]
+                0.00    0.00      37/37          cimg_library::cimg::strcasecmp(char const*, char const*) [215]
+                0.00    0.00      27/32          cimg_library::cimg::std_fopen(char const*, char const*) [216]
+                0.00    0.00      26/27          cimg_library::cimg::filenamerand() [217]
+                0.00    0.00      26/26          cimg_library::cimg::temporary_path(char const*, bool) [218]
+                0.00    0.00       6/8           cimg_library::CImg<char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int) [220]
+                0.00    0.00       4/4           cimg_library::cimg::fopen(char const*, char const*) [221]
+                0.00    0.00       2/2           cimg_library::CImg<unsigned char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int) [225]
+                0.00    0.00       2/10          cimg_library::CImg<char>::CImg(char const*, unsigned int, unsigned int, unsigned int, unsigned int, bool) [219]
+                0.00    0.00       2/2           cimg_library::cimg::ffmpeg_path(char const*, bool) [227]
+                0.00    0.00       2/2           cimg_library::cimg::number_filename(char const*, int, unsigned int, char*) [228]
+                0.00    0.00       2/2           cimg_library::CImg<unsigned char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int, unsigned char const&) [226]
+                                   2             cimg_library::CImg<char>::_system_strescape() <cycle 1> [223]
+                                  22             getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+-----------------------------------------------
+                1.09    0.05       1/1           main [1]
+[9]      2.5    1.09    0.05       1         initialize(int, std::bernoulli_distribution*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>*, unsigned long long*) [9]
+                0.05    0.00  860371/892521      std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>::_M_gen_rand() [15]
+-----------------------------------------------
+                                                 <spontaneous>
+[10]     1.2    0.54    0.00                 _mcount_private [10]
+-----------------------------------------------
+                                                 <spontaneous>
+[11]     1.0    0.47    0.00                 __fentry__ [11]
+-----------------------------------------------
+                                                 <spontaneous>
+[12]     0.5    0.22    0.00                 fputc [12]
+-----------------------------------------------
+                                                 <spontaneous>
+[13]     0.5    0.22    0.00                 operator new(unsigned long long) [13]
+-----------------------------------------------
+                0.04    0.00       1/2           DeadCounters::DeadCounters(int, unsigned long long*, unsigned long long*) [16]
+                0.04    0.00       1/2           AliveCounters::AliveCounters(int, unsigned long long*, unsigned long long*) [17]
+[14]     0.2    0.07    0.00       2         CounterTree::CounterTree(int, std::vector<unsigned long long, std::allocator<unsigned long long> >) [14]
+-----------------------------------------------
+                0.00    0.00   32150/892521      step(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>&) [2]
+                0.05    0.00  860371/892521      initialize(int, std::bernoulli_distribution*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>*, unsigned long long*) [9]
+[15]     0.1    0.05    0.00  892521         std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>::_M_gen_rand() [15]
+-----------------------------------------------
+                0.01    0.04       1/1           main [1]
+[16]     0.1    0.01    0.04       1         DeadCounters::DeadCounters(int, unsigned long long*, unsigned long long*) [16]
+                0.04    0.00       1/2           CounterTree::CounterTree(int, std::vector<unsigned long long, std::allocator<unsigned long long> >) [14]
+-----------------------------------------------
+                0.01    0.04       1/1           main [1]
+[17]     0.1    0.01    0.04       1         AliveCounters::AliveCounters(int, unsigned long long*, unsigned long long*) [17]
+                0.04    0.00       1/2           CounterTree::CounterTree(int, std::vector<unsigned long long, std::allocator<unsigned long long> >) [14]
+-----------------------------------------------
+                0.00    0.00       2/71          main [1]
+                0.00    0.00       4/71          cimg_library::cimg::temporary_path(char const*, bool) [218]
+                0.00    0.00       4/71          cimg_library::cimg::number_filename(char const*, int, unsigned int, char*) [228]
+                0.00    0.00      61/71          getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[214]    0.0    0.00    0.00      71         __gcc_deregister_frame [214]
+-----------------------------------------------
+                0.00    0.00      37/37          getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[215]    0.0    0.00    0.00      37         cimg_library::cimg::strcasecmp(char const*, char const*) [215]
+-----------------------------------------------
+                0.00    0.00       1/32          cimg_library::cimg::temporary_path(char const*, bool) [218]
+                0.00    0.00       4/32          cimg_library::cimg::fopen(char const*, char const*) [221]
+                0.00    0.00      27/32          getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[216]    0.0    0.00    0.00      32         cimg_library::cimg::std_fopen(char const*, char const*) [216]
+-----------------------------------------------
+                0.00    0.00       1/27          cimg_library::cimg::temporary_path(char const*, bool) [218]
+                0.00    0.00      26/27          getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[217]    0.0    0.00    0.00      27         cimg_library::cimg::filenamerand() [217]
+-----------------------------------------------
+                0.00    0.00      26/26          getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[218]    0.0    0.00    0.00      26         cimg_library::cimg::temporary_path(char const*, bool) [218]
+                0.00    0.00       4/71          __gcc_deregister_frame [214]
+                0.00    0.00       2/8           cimg_library::CImg<char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int) [220]
+                0.00    0.00       1/3           cimg_library::CImg<char>::assign(unsigned int, unsigned int, unsigned int, unsigned int) [222]
+                0.00    0.00       1/27          cimg_library::cimg::filenamerand() [217]
+                0.00    0.00       1/32          cimg_library::cimg::std_fopen(char const*, char const*) [216]
+-----------------------------------------------
+                0.00    0.00       2/10          getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+                0.00    0.00       8/10          cimg_library::CImg<char>::_system_strescape() <cycle 1> [223]
+[219]    0.0    0.00    0.00      10         cimg_library::CImg<char>::CImg(char const*, unsigned int, unsigned int, unsigned int, unsigned int, bool) [219]
+-----------------------------------------------
+                0.00    0.00       2/8           cimg_library::cimg::temporary_path(char const*, bool) [218]
+                0.00    0.00       6/8           getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[220]    0.0    0.00    0.00       8         cimg_library::CImg<char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int) [220]
+-----------------------------------------------
+                0.00    0.00       4/4           getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[221]    0.0    0.00    0.00       4         cimg_library::cimg::fopen(char const*, char const*) [221]
+                0.00    0.00       4/32          cimg_library::cimg::std_fopen(char const*, char const*) [216]
+-----------------------------------------------
+                0.00    0.00       1/3           cimg_library::cimg::ffmpeg_path(char const*, bool) [227]
+                0.00    0.00       1/3           cimg_library::cimg::temporary_path(char const*, bool) [218]
+                0.00    0.00       1/3           cimg_library::CImgList<char>::get_append(char, float) const [229]
+[222]    0.0    0.00    0.00       3         cimg_library::CImg<char>::assign(unsigned int, unsigned int, unsigned int, unsigned int) [222]
+-----------------------------------------------
+                                   2             getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[223]    0.0    0.00    0.00       2         cimg_library::CImg<char>::_system_strescape() <cycle 1> [223]
+                0.00    0.00       8/10          cimg_library::CImg<char>::CImg(char const*, unsigned int, unsigned int, unsigned int, unsigned int, bool) [219]
+                0.00    0.00       2/2           cimg_library::CImgList<char>::get_append(char, float) const [229]
+                                  14             getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+-----------------------------------------------
+                0.00    0.00       2/2           step(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>&) [2]
+[224]    0.0    0.00    0.00       2         cimg_library::CImg<unsigned char>::assign(unsigned char const*, unsigned int, unsigned int, unsigned int, unsigned int) [224]
+-----------------------------------------------
+                0.00    0.00       2/2           getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[225]    0.0    0.00    0.00       2         cimg_library::CImg<unsigned char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int) [225]
+-----------------------------------------------
+                0.00    0.00       2/2           getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[226]    0.0    0.00    0.00       2         cimg_library::CImg<unsigned char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int, unsigned char const&) [226]
+-----------------------------------------------
+                0.00    0.00       2/2           getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[227]    0.0    0.00    0.00       2         cimg_library::cimg::ffmpeg_path(char const*, bool) [227]
+                0.00    0.00       1/3           cimg_library::CImg<char>::assign(unsigned int, unsigned int, unsigned int, unsigned int) [222]
+-----------------------------------------------
+                0.00    0.00       2/2           getFrame(int, unsigned long long*, unsigned long long*) <cycle 1> [8]
+[228]    0.0    0.00    0.00       2         cimg_library::cimg::number_filename(char const*, int, unsigned int, char*) [228]
+                0.00    0.00       4/71          __gcc_deregister_frame [214]
+-----------------------------------------------
+                0.00    0.00       2/2           cimg_library::CImg<char>::_system_strescape() <cycle 1> [223]
+[229]    0.0    0.00    0.00       2         cimg_library::CImgList<char>::get_append(char, float) const [229]
+                0.00    0.00       1/1           cimg_library::CImg<char>::CImg(cimg_library::CImg<char> const&, bool) [231]
+                0.00    0.00       1/3           cimg_library::CImg<char>::assign(unsigned int, unsigned int, unsigned int, unsigned int) [222]
+-----------------------------------------------
+                0.00    0.00       2/2           main [1]
+[230]    0.0    0.00    0.00       2         std::vector<CounterNode, std::allocator<CounterNode> >::~vector() [230]
+-----------------------------------------------
+                0.00    0.00       1/1           cimg_library::CImgList<char>::get_append(char, float) const [229]
+[231]    0.0    0.00    0.00       1         cimg_library::CImg<char>::CImg(cimg_library::CImg<char> const&, bool) [231]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[232]    0.0    0.00    0.00       1         cimg_library::CImgList<unsigned char>::~CImgList() [232]
+-----------------------------------------------
+
+Index by function name
+
+   [9] initialize(int, std::bernoulli_distribution*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>*, unsigned long long*) [231] cimg_library::CImg<char>::CImg(cimg_library::CImg<char> const&, bool) [232] cimg_library::CImgList<unsigned char>::~CImgList()
+   [5] isUnsatisfied(unsigned long long*, int, int) [220] cimg_library::CImg<char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int) [17] AliveCounters::AliveCounters(int, unsigned long long*, unsigned long long*)
+   [4] update_unsatisfied(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*) [224] cimg_library::CImg<unsigned char>::assign(unsigned char const*, unsigned int, unsigned int, unsigned int, unsigned int) [229] cimg_library::CImgList<char>::get_append(char, float) const
+   [6] get_all_unsatisfied(int, unsigned long long*, unsigned long long*) [225] cimg_library::CImg<unsigned char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int) [15] std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>::_M_gen_rand()
+   [3] unsatisfiedIdxToGridIdx(int, unsigned long long*, unsigned long long*, unsigned long long&, unsigned long long&, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*) [226] cimg_library::CImg<unsigned char>::CImg(unsigned int, unsigned int, unsigned int, unsigned int, unsigned char const&) [230] std::vector<CounterNode, std::allocator<CounterNode> >::~vector()
+   [2] step(int, CounterTree&, CounterTree&, unsigned long long*, unsigned long long*, unsigned long long*, unsigned long long*, std::mersenne_twister_engine<unsigned int, 32ull, 624ull, 397ull, 31ull, 2567483615u, 11ull, 4294967295u, 7ull, 2636928640u, 15ull, 4022730752u, 18ull, 1812433253u>&) [215] cimg_library::cimg::strcasecmp(char const*, char const*) [13] operator new(unsigned long long)
+   [8] getFrame(int, unsigned long long*, unsigned long long*) [227] cimg_library::cimg::ffmpeg_path(char const*, bool) [11] __fentry__
+  [14] CounterTree::CounterTree(int, std::vector<unsigned long long, std::allocator<unsigned long long> >) [217] cimg_library::cimg::filenamerand() [214] __gcc_deregister_frame
+  [16] DeadCounters::DeadCounters(int, unsigned long long*, unsigned long long*) [218] cimg_library::cimg::temporary_path(char const*, bool) [10] _mcount_private
+ [223] cimg_library::CImg<char>::_system_strescape() [228] cimg_library::cimg::number_filename(char const*, int, unsigned int, char*) [12] fputc
+ [222] cimg_library::CImg<char>::assign(unsigned int, unsigned int, unsigned int, unsigned int) [221] cimg_library::cimg::fopen(char const*, char const*) [1] main
+ [219] cimg_library::CImg<char>::CImg(char const*, unsigned int, unsigned int, unsigned int, unsigned int, bool) [216] cimg_library::cimg::std_fopen(char const*, char const*) [7] <cycle 1>

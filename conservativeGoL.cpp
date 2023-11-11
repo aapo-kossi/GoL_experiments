@@ -14,6 +14,7 @@
 // Copyright Aapo Kössi (@aapo-kossi), 2023                                 //
 //////////////////////////////////////////////////////////////////////////////
 #include <iostream>
+#include <iomanip>
 #include <bit>
 #include <random>
 #include <intrin.h>
@@ -28,6 +29,45 @@
 using namespace std;
 using namespace cimg_library;
 
+constexpr unsigned char staticGetUnsatisfied(uint16_t bitPattern) {
+    unsigned char out = 0;
+    const std::array<int, 8> neighbors = {-6,-5,-4,-1,1,4,5,6};
+    for (int checked = 0; checked < 3; checked++) {
+        bool isAlive = (bitPattern>>(6 + checked)) & 1;
+        unsigned char nnCount = 0;
+        for (int nn : neighbors) {
+            nnCount += (bitPattern>>(6 + checked + nn)) & 1;
+        }
+        out |= ((!isAlive && (nnCount == 3)) || (isAlive && ((nnCount < 2) ||(nnCount > 3))))<<checked;
+    }
+
+    return out;
+}
+
+constexpr auto unsatisfiedLUT = [] {
+    constexpr auto LUT_Size = 0x7FFF;
+    std::array<unsigned char, LUT_Size> arr = {};
+
+    for (int i = 0; i < LUT_Size; ++i)
+    {
+        arr[i] = staticGetUnsatisfied(i);
+    }
+
+    return arr;
+}();
+
+/***********************************************\
+|  test lookup with the following bit patterns: |
+|                                               |
+|  1. 11111                 2. 10110            |
+|     00000                    01000            |
+|     00000                    00110            |
+|  (all unsatisfied)        (all satisfied)     |
+|                                               |
+\***********************************************/
+static_assert(unsatisfiedLUT[31744] == 0x07);
+static_assert(unsatisfiedLUT[12365] == 0x00);
+
 enum Action {
     INCREMENT = 1,
     DECREMENT = -1
@@ -36,21 +76,37 @@ enum Action {
 struct CounterNode {
     unsigned int ltotal;
     unsigned int rtotal;
-    unsigned int location;
-    bool final;
 };
 
 class CounterTree {
+private:
+    // get a reference to the leaf at index idx
+    CounterNode& _leaf(unsigned int idx) {
+        return nodes[numLeaf - 1 + idx];
+    }
+
 public:
     CounterTree(int N, vector<uint64_t> grid) {
-        numLeaf = N*N/BITNESS;
-        depth = log2(numLeaf);
+        unsigned int trueNumLeaf = N*N/BITNESS + !!(N*N%BITNESS);
+        depth = ceil(log2(trueNumLeaf));
+
+        int accumulated_size = 0;
+        for (int size = 1, i = 0; i<=depth; size *= 2, i++) {
+            layerStarts.push_back(accumulated_size);
+            layerSizes.push_back(size);
+            accumulated_size += size;
+        }
+        numLeaf = (accumulated_size + 1)/2;
 
         // build the tree starting from the bottom layer (leaves)
-        vector<unsigned int> popcounts(N*N/BITNESS);
         for (unsigned int i=0; i<numLeaf; i++) {
-            popcounts[i] = _popcnt64(grid[i]);
-            nodes.push_back(CounterNode { 0, popcounts[i], i, true });
+            unsigned int popcount;
+            if (i < trueNumLeaf) {
+                popcount = _popcnt64(grid[i]);
+            } else {
+                popcount = 0;
+            }
+            nodes.push_back(CounterNode { 0, popcount});
         }
 
         // add the narrower layers
@@ -59,63 +115,15 @@ public:
         int step = 2;
         while (layerWidth > 0) {
             vector<CounterNode> nLayer;
-            // printf("Starting layer %u\n", currentLayer);
             for (int i=0; i<layerWidth; i++) {
                 CounterNode lchild = nodes[i*2];
                 CounterNode rchild = nodes[i*2+1];
-                nLayer.push_back(CounterNode { lchild.ltotal + lchild.rtotal, rchild.ltotal + rchild.rtotal, 0, false });
-                // printf("left: %u, right: %u\n", lchild.ltotal + lchild.rtotal, rchild.ltotal + rchild.rtotal);
+                nLayer.push_back(CounterNode { lchild.ltotal + lchild.rtotal, rchild.ltotal + rchild.rtotal});
             }
             nodes.insert(nodes.begin(), nLayer.begin(), nLayer.end());
             layerWidth /= 2;
             currentLayer++;
         }
-    }
-
-    // get the index of the leaf that has [n] set bits in total in leaves up to and including itself
-    unsigned int getPosition(unsigned int n, unsigned int& totalBelow) {
-        unsigned int treeIdx = 0;
-        CounterNode current = nodes[treeIdx];
-        unsigned int layerSize = 1;
-        unsigned int layerIdx = 0;
-
-        for (int i = 0; i < depth; i++) {
-            unsigned int prevLayerIdx = layerIdx;
-            bool selectRight = (totalBelow + current.ltotal) <= n;
-            totalBelow += current.ltotal * selectRight;
-            layerIdx = 2*layerIdx + selectRight;
-            treeIdx += (layerSize - prevLayerIdx) + layerIdx;
-            current = nodes[treeIdx];
-            layerSize *= 2;
-        }
-
-        // index in the bottom layer of the tree is identical to the grid index
-        return layerIdx;
-    }
-
-    // update the leaf at index idx and all its parents according to action
-    void update(unsigned int idx, int action) {
-        unsigned int treeIdx = 0;
-        unsigned int layerSize = 1;
-        unsigned int layerIdx = 0;
-        unsigned int layerStart = 0;
-        for (int i = 0; i < depth; i++) {
-            layerIdx = idx * layerSize / numLeaf;
-            treeIdx = layerStart + layerIdx;
-            CounterNode& current = nodes[treeIdx];
-
-            if ( (2 * idx * layerSize / numLeaf) % 2 ) {
-                current.rtotal += action;
-            } else {
-                current.ltotal += action;
-            }
-
-            layerStart += layerSize;
-            layerSize *= 2;
-        }
-        treeIdx = layerStart + layerIdx;
-        CounterNode& current = nodes[treeIdx];
-        current.rtotal += action;
     }
 
     // get the total number of set bits in the grid
@@ -128,6 +136,40 @@ public:
         return nodes[numLeaf - 1 + idx];
     }
 
+    // O(log2(N))get the index of the leaf that has [n] set bits in total in leaves up to and including itself
+    unsigned int getPosition(unsigned int n, unsigned int& totalBelow) {
+        unsigned int treeIdx = 0;
+        CounterNode current = nodes[treeIdx];
+
+        for (int i = 0; i < depth; i++) {
+            bool selectRight = ((totalBelow + current.ltotal) <= n) || !current.ltotal;
+            totalBelow += current.ltotal * selectRight;
+            treeIdx = 2*treeIdx + 1 +selectRight;
+            current = nodes[treeIdx];
+        }
+
+        // index in the bottom layer of the tree is identical to the grid index
+        return treeIdx + 1 - numLeaf;
+    }
+
+    // update the leaf at index idx and all its parents according to action (embarassingly parallel loop!)
+    void update(unsigned int idx, int action) {
+        for (int i = 0; i < depth; i++) {
+            unsigned int layerIdx = idx >> (depth - i);
+            unsigned int treeIdx = (1 << i) - 1 + layerIdx;
+            CounterNode& current = nodes[treeIdx];
+
+            if ( (idx >> (depth - i - 1)) & 1 ) {
+                current.rtotal += action;
+            } else {
+                current.ltotal += action;
+            }
+
+        }
+        CounterNode& last = _leaf(idx);
+        last.rtotal += action;
+    }
+
     // print all counters of the tree
     void printAll() {
         for (int i=0; i<numLeaf*2-1; i++) {
@@ -137,6 +179,8 @@ public:
 private:
     unsigned int numLeaf;
     unsigned int depth;
+    vector<unsigned int> layerSizes;
+    vector<unsigned int> layerStarts;
     vector<CounterNode> nodes;
 };
 
@@ -144,9 +188,10 @@ private:
 class AliveCounters: public CounterTree {
 private:
     vector<uint64_t> getGridUD(int N, uint64_t* gridA, uint64_t* gridU) {
-        vector<uint64_t> ret;
-        for (int i=0; i<(N*N/BITNESS); i++) {
-            ret.push_back(gridU[i] & gridA[i]);
+        vector<uint64_t> ret(N*N/BITNESS+1);
+
+        for (int i=0; i<(N*N/BITNESS+1); i++) {
+            ret[i] = gridU[i] & gridA[i];
         }
         return ret;
     }
@@ -158,9 +203,10 @@ public:
 class DeadCounters: public CounterTree {
 private:
     vector<uint64_t> getGridUD(int N, uint64_t* gridA, uint64_t* gridU) {
-        vector<uint64_t> ret;
-        for (int i=0; i<(N*N/BITNESS); i++) {
-            ret.push_back(gridU[i] & (~gridA[i]));
+        vector<uint64_t> ret(N*N/BITNESS+1);
+
+        for (int i=0; i<(N*N/BITNESS+1); i++) {
+            ret[i] = gridU[i] & (~gridA[i]);
         }
         return ret;
     }
@@ -179,13 +225,6 @@ unsigned mod(int x, int y) {
 // compile-time optimizeable version for fast mod of 64
 unsigned mod64(int x) {
     return mod(x, BITNESS);
-}
-
-
-void mapAdd(std::unordered_map<uint64_t, int>& out, std::unordered_map<uint64_t, int>& in) {
-    for (auto initer = in.begin(); initer != in.end(); ++initer) {
-        out[initer->first] += initer->second;
-    }
 }
 
 CImg<unsigned char> getFrame(int N, uint64_t* gridA, uint64_t* gridU) {
@@ -254,6 +293,45 @@ bool isUnsatisfied(uint64_t* grid, int N, int i) {
     }
 }
 
+inline uint16_t getNNsUnsatisfied(uint64_t* grid, int N, uint64_t bitPos, int idx) {
+    const int affectingRadius = 2;
+    const int nRows = 2*affectingRadius + 1;
+    int maxIdx = N*N;
+    
+    // build bit 5x5 bit pattern around index idx into the 32 bit nnnpacked
+    // TODO: fix for grids that dont have cell count multiple of BITNESS
+    int bitIdx = mod64(idx);
+    uint64_t bitMask = 0;
+    for (int i = -affectingRadius; i<= affectingRadius; i++) {
+        bitMask |= std::rotl(bitPos, i);
+    }
+    uint64_t masked_neighbor;
+    uint32_t nnnpacked = 0;
+    for (int i=0; i<nRows; i++) {
+        int n = (i-2)*N;
+        int iBitIdx = mod64(bitIdx + n);
+        uint64_t itermask = std::rotl(bitMask, n);
+        if (iBitIdx < affectingRadius) {
+            masked_neighbor = (grid[mod(idx + n, maxIdx) / BITNESS] & itermask) << (affectingRadius  - iBitIdx    )\
+                                | (grid[mod(idx + n-BITNESS, maxIdx) / BITNESS] & itermask) >> (BITNESS + iBitIdx - affectingRadius);
+        } else if (iBitIdx >= (BITNESS - affectingRadius)) {
+            masked_neighbor = (grid[mod(idx + n, maxIdx) / BITNESS] & itermask) >> (iBitIdx - affectingRadius)\
+                                | (grid[mod(idx + n+BITNESS, maxIdx) / BITNESS] & itermask) << (BITNESS - iBitIdx + affectingRadius);
+        } else {
+            masked_neighbor = (grid[mod(idx + n, maxIdx) / BITNESS] & itermask) >> (iBitIdx - affectingRadius);
+        }
+        nnnpacked |= std::rotl(masked_neighbor, i*nRows);
+    }
+
+    // look up which cells of the 3x3 nearest neighbors are unsatisfied, row by row
+    uint16_t result = unsatisfiedLUT[nnnpacked & 0x7FFF];
+    for (int row = 1; row < (nRows-2); row++) {
+        uint16_t pattern = (nnnpacked >> (5*row)) & 0x7FFF;
+        result |= unsatisfiedLUT[pattern] << (3*row);
+    }
+    return result;
+}
+
 void print_numbers(int N, uint64_t* grid) {
     uint64_t n_alive = 0;
     for (int i=0; i< N*N/BITNESS; i++) {
@@ -268,14 +346,13 @@ void get_all_unsatisfied(
     uint64_t* gridUnsatisfied
 ) {
 
-    #pragma omp parallel for
     for (uint64_t i=0; i<(N*N);i++) {
         bool state = isUnsatisfied(grid, N, i);
         gridUnsatisfied[i/BITNESS] |= (uint64_t)state << mod64(i);
     }
 }
 
-void update_unsatisfied(
+inline void update_unsatisfied(
     int N,
     CounterTree& treeUD,
     CounterTree& treeUA,
@@ -284,63 +361,59 @@ void update_unsatisfied(
     uint64_t* pos,
     uint64_t* bitPos
 ) {
-    const vector<int> neighborhood{ -1-N, -N, 1-N, -1, 1, N-1, N, N+1};
-    vector<uint64_t> nbrDPositions(neighborhood.size());
-    vector<uint64_t> nbrAPositions(neighborhood.size());
-    vector<uint64_t> nbrDbitPositions(neighborhood.size());
-    vector<uint64_t> nbrAbitPositions(neighborhood.size());
-    vector<bool> nbrDisUnsatisfied(neighborhood.size());
-    vector<bool> nbrAisUnsatisfied(neighborhood.size());
+    array<int, 9> neighborhood = {-N-1, -N, -N+1, -1, 0, 1, N-1, N, N+1};
+
+    int idxD = pos[0]*BITNESS + __builtin_ctzll(bitPos[0]);
+    int idxA = pos[1]*BITNESS + __builtin_ctzll(bitPos[1]);
+    uint16_t updatedUofD = getNNsUnsatisfied(grid, N, bitPos[0], idxD);
+    uint16_t updatedUofA = getNNsUnsatisfied(grid, N, bitPos[1], idxA);
 
     // aggregate different neighbors that have identical position to avoid unnecessary updates
-    std::unordered_map<uint64_t, int> totalIncrementsA;
-    std::unordered_map<uint64_t, int> totalIncrementsD;
-    std::unordered_map<uint64_t, uint64_t> updatedGridUElements;
+    std::unordered_map<uint64_t, int> totalIncrementsA(12);
+    std::unordered_map<uint64_t, int> totalIncrementsD(12);
 
     int gridLength = N*N/BITNESS;
 
-    // this doesn't parallelize very well as we are adding new keys, but it is convenient
-    // to do the reduction inside the parallel block.
-    #pragma omp declare reduction(mapAdd : std::unordered_map<uint64_t, int> :  \
-            mapAdd(omp_out, omp_in))                                            \
-            initializer(omp_priv=omp_orig)
+    for (int idx=0; idx < 9; idx++) {
+        int i = mod(idxD + neighborhood[idx], N*N);
+        int j = mod(idxA + neighborhood[idx], N*N);
 
-    #pragma omp parallel for reduction(mapAdd:totalIncrementsA, totalIncrementsD)
-    for (int idx=0; idx < 8; idx++) {
-        uint64_t i = mod(pos[0]*BITNESS + __builtin_ctzll(bitPos[0]) + neighborhood[idx], N*N);
-        uint64_t j = mod(pos[1]*BITNESS + __builtin_ctzll(bitPos[1]) + neighborhood[idx], N*N);
+        int nbrDPosition = i / BITNESS;
+        int nbrAPosition = j / BITNESS;
 
-        nbrDPositions[idx] = i / BITNESS;
-        nbrAPositions[idx] = j / BITNESS;
-
-        nbrDbitPositions[idx] = std::rotl(bitPos[0], neighborhood[idx]);
-        nbrAbitPositions[idx] = std::rotl(bitPos[1], neighborhood[idx]);
-
-        nbrDisUnsatisfied[idx] = isUnsatisfied(grid, N, i);
-        nbrAisUnsatisfied[idx] = isUnsatisfied(grid, N, j);
+        uint64_t nbrDbitPosition = std::rotl(bitPos[0], neighborhood[idx]);
+        uint64_t nbrAbitPosition = std::rotl(bitPos[1], neighborhood[idx]);
 
         // add new unsatisfied state, subtract previous
-        int nbrDIncrement = nbrDisUnsatisfied[idx] - !!(gridU[nbrDPositions[idx]] & nbrDbitPositions[idx]);
-        int nbrAIncrement = nbrAisUnsatisfied[idx] - !!(gridU[nbrAPositions[idx]] & nbrAbitPositions[idx]);
+        int nbrDIncrement = ((updatedUofD >> idx) & 1) - !!(gridU[nbrDPosition] & nbrDbitPosition);
+        int nbrAIncrement = ((updatedUofA >> idx) & 1) - !!(gridU[nbrAPosition] & nbrAbitPosition);
 
-        if (grid[nbrDPositions[idx]] & nbrDbitPositions[idx]) {
+        gridU[nbrDPosition] = (
+            gridU[nbrDPosition] & ~nbrDbitPosition)
+            | (nbrDbitPosition*!!(updatedUofD & (1 << idx)));
+
+        gridU[nbrAPosition] = (
+            gridU[nbrAPosition] & ~nbrAbitPosition)
+            | (nbrAbitPosition*!!(updatedUofA & (1 << idx)));
+
+        if (grid[nbrDPosition] & nbrDbitPosition) {
             // this neighbor of dead cell is alive
-            totalIncrementsA[nbrDPositions[idx]] += nbrDIncrement;
+            totalIncrementsA[nbrDPosition] += nbrDIncrement;
         } else {
             // this neighbor of dead cell is dead
-            totalIncrementsD[nbrDPositions[idx]] += nbrDIncrement;
+            totalIncrementsD[nbrDPosition] += nbrDIncrement;
         }
 
-        if (grid[nbrAPositions[idx]] & nbrAbitPositions[idx]) {
+        if (grid[nbrAPosition] & nbrAbitPosition) {
             // this neighbor of alive cell is alive
-            totalIncrementsA[nbrAPositions[idx]] += nbrAIncrement;
+            totalIncrementsA[nbrAPosition] += nbrAIncrement;
         } else {
             // this neighbor of alive cell is dead
-            totalIncrementsD[nbrAPositions[idx]] += nbrAIncrement;
+            totalIncrementsD[nbrAPosition] += nbrAIncrement;
         }
 
     }
-    
+
     for (auto& iterIncrD : totalIncrementsD) {
         if (iterIncrD.second != 0) {
             treeUD.update(iterIncrD.first, iterIncrD.second);
@@ -352,21 +425,9 @@ void update_unsatisfied(
             treeUA.update(iterIncrA.first, iterIncrA.second);
         }
     }
-
-    for (int idx=0; idx < 8; idx++) {
-
-        gridU[nbrDPositions[idx]] = (
-            gridU[nbrDPositions[idx]] & ~nbrDbitPositions[idx])
-            | (nbrDbitPositions[idx]*nbrDisUnsatisfied[idx]);
-
-        gridU[nbrAPositions[idx]] = (
-            gridU[nbrAPositions[idx]] & ~nbrAbitPositions[idx])
-            | (nbrAbitPositions[idx]*nbrAisUnsatisfied[idx]);
-
-    }
 }
 
-void unsatisfiedIdxToGridIdx(
+inline void unsatisfiedIdxToGridIdx(
     int N,
     uint64_t* gridA,
     uint64_t* gridU,
@@ -416,22 +477,43 @@ void step(
     grid[pos[1]] ^= bitPos[1];
     treeUD.update(pos[0], DECREMENT);
     treeUA.update(pos[1], DECREMENT);
-
-
-    //check if swapped cells are unsatisfied, update counts
-    if (isUnsatisfied(grid, N, pos[0]*BITNESS + __builtin_ctzll(bitPos[0]))) {
-        treeUA.update(pos[0], INCREMENT);
-    } else {
-        gridUnsatisfied[pos[0]] ^= bitPos[0];
-    }
-    if (isUnsatisfied(grid, N, pos[1]*BITNESS + __builtin_ctzll(bitPos[1]))) {
-        treeUD.update(pos[1], INCREMENT);
-    } else {
-        gridUnsatisfied[pos[1]] ^= bitPos[1];
-    }
+    gridUnsatisfied[pos[0]] ^= bitPos[0];
+    gridUnsatisfied[pos[1]] ^= bitPos[1];
 
     // update grid of unsatisfied cells and their counts
     update_unsatisfied(N, treeUD, treeUA, grid, gridUnsatisfied, pos, bitPos);
+}
+
+// progress bar function mostly by ChatGPT
+void displayProgressBar(int i, int n, float measure) {
+    // Calculate the percentage of completion
+    float progress = static_cast<float>(i) / n;
+
+    // Determine the width of the progress bar (here, it's set to 50 characters)
+    int barWidth = 50;
+
+    // Calculate the number of characters to represent completed progress
+    int completedWidth = static_cast<int>(progress * barWidth);
+
+    // Display the progress bar
+    std::cout << "[";
+    for (int j = 0; j < completedWidth; ++j) {
+        std::cout << "=";
+    }
+    for (int j = completedWidth; j < barWidth; ++j) {
+        std::cout << " ";
+    }
+    std::cout << "] " << std::fixed << std::setprecision(2) << progress * 100.0 << "% ("
+              << i << "/" << n << ") " << std::fixed << measure << " simulation time" << "\r";
+    std::cout.flush();
+
+}
+
+void kahanSum(float &accumulator,float value,float &correction) {
+    float correctedValue = value-correction;
+    value = accumulator + correctedValue;
+    correction = (value-accumulator)-correctedValue;
+    accumulator = value;
 }
 
 int main(int argc, char** argv) {
@@ -461,7 +543,7 @@ int main(int argc, char** argv) {
         "Grid size: %i\n"
         "Initialization probability of cell being dead: %f\n"
         "Maximum number of iterations: %i\n"
-        "Maximum numbe of generated video frames: %i\n"
+        "Maximum number of generated video frames: %i\n"
         "Animation frequency in units of 1/dt: %f\n",
         N, p, numIter, numFrames, freq);
 
@@ -484,6 +566,11 @@ int main(int argc, char** argv) {
     uint64_t currentFrame = 1; // The first simulation frame is already plotted
     float maxFrameTime = 1.0f/freq;
 
+    // we may need such a large amount of steps that incrementing total time results in precision loss
+    // To counteract this, we use Kahan summation for the increments
+    float cFrameTime = 0;
+    float cTotalTime = 0;
+
     for (i; i<numIter; i++) {
         if (!treeUD.total() || !treeUA.total()) {
             break;
@@ -496,9 +583,16 @@ int main(int argc, char** argv) {
         }
         float stepTime = 1.0f/(treeUD.total() + treeUA.total());
         step(N, treeUD, treeUA, gridAlive, gridUnsatisfied, pos, bitPos, gen);
-        frameTime += stepTime;
-        totalTime += stepTime;
+
+        kahanSum(frameTime, stepTime, cFrameTime);
+        kahanSum(totalTime, stepTime, cTotalTime);
+
+        if (!(i % 50000)) {
+            displayProgressBar(i, numIter, totalTime);
+        }
     }
+    displayProgressBar(i, numIter, totalTime);
+    std::cout << std::endl; // don't overwrite the progress bar
 
     getFrame(N, gridAlive, gridUnsatisfied).move_to(animation);
 

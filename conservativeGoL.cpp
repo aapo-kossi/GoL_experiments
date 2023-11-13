@@ -297,7 +297,7 @@ inline uint16_t getNNsUnsatisfied(uint64_t* grid, int N, uint64_t bitPos, int id
     const int affectingRadius = 2;
     const int nRows = 2*affectingRadius + 1;
     int maxIdx = N*N;
-    
+
     // build bit 5x5 bit pattern around index idx into the 32 bit nnnpacked
     // TODO: fix for grids that dont have cell count multiple of BITNESS
     int bitIdx = mod64(idx);
@@ -485,7 +485,7 @@ void step(
 }
 
 // progress bar function mostly by ChatGPT
-void displayProgressBar(int i, int n, float measure) {
+void displayProgressBar(uint64_t i, uint64_t n, float measure) {
     // Calculate the percentage of completion
     float progress = static_cast<float>(i) / n;
 
@@ -529,12 +529,12 @@ int main(int argc, char** argv) {
     } else {
         filename = argv[7];
     }
-    int N = atoi(argv[1]);
-    float p = atof(argv[2]);
-    uint64_t numIter = atof(argv[3]);
-    uint64_t numFrames = atoi(argv[4]);
-    float freq = atof(argv[5]);
-    uint64_t seed = atoi(argv[6]);
+    int N = stoi(argv[1],NULL,0);
+    float p = strtof(argv[2],NULL);
+    uint64_t numIter = strtoull(argv[3],NULL,0);
+    uint64_t numFrames = stoi(argv[4],NULL,0);
+    float freq = strtof(argv[5],NULL);
+    uint64_t seed = stoi(argv[6],NULL,0);
 
     mt19937 gen(seed);
     bernoulli_distribution d(1-p);
@@ -542,7 +542,7 @@ int main(int argc, char** argv) {
         "Running conservative Game of Life.\n"
         "Grid size: %i\n"
         "Initialization probability of cell being dead: %f\n"
-        "Maximum number of iterations: %i\n"
+        "Maximum number of iterations: %llu\n"
         "Maximum number of generated video frames: %i\n"
         "Animation frequency in units of 1/dt: %f\n",
         N, p, numIter, numFrames, freq);
